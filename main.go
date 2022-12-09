@@ -13,5 +13,5 @@ func main() {
 
 	r.GET("/img/:id", api.GetImg)
 
-	r.Run()
+	r.Run(":8081")
 }
