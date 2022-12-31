@@ -1,8 +1,7 @@
 package db
 
-import "gorm.io/gorm"
-
 type Img struct {
-	gorm.Model
-	Base64 string `gorm:"type:blob"`
+	ID     int `gorm:"primarykey"`
+	Url    string
+	Base64 string `gorm:"type:mediumblob"`
 }

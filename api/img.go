@@ -2,6 +2,8 @@ package api
 
 import (
 	"common/db"
+	"encoding/base64"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -18,36 +20,69 @@ func SaveImg(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	id, err := db.SaveImg(req.Data)
+	var url, base string
+	if req.Type == 1 {
+		url = req.Data
+		res, err := http.Get(url)
+		if err != nil {
+			rsp.Code = -1
+			rsp.Msg = err.Error()
+			c.JSON(http.StatusBadRequest, rsp)
+			return
+		}
+		defer res.Body.Close()
+		data, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			rsp.Code = -1
+			rsp.Msg = err.Error()
+			c.JSON(http.StatusBadRequest, rsp)
+			return
+		}
+
+		base = base64.StdEncoding.EncodeToString(data)
+	} else {
+		base = req.Data
+	}
+
+	id, err := db.SaveImg(url, base)
 	if err != nil {
 		rsp.Code = -1
 		rsp.Msg = err.Error()
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	rsp.Data.ID = id
+	rsp.Data = id
 	c.JSON(http.StatusOK, rsp)
 }
 
 func GetImg(c *gin.Context) {
 	idStr := c.Param("id")
-	var rsp GetImgRsp
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		rsp.Code = -1
-		rsp.Msg = err.Error()
-		c.JSON(http.StatusBadRequest, rsp)
+		c.Error(err)
 		return
 	}
 
-	base64, err := db.GetImg(uint(id))
+	img, err := db.GetImg(uint(id))
 	if err != nil {
-		rsp.Code = -1
-		rsp.Msg = err.Error()
-		c.JSON(http.StatusBadRequest, rsp)
+		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
-	rsp.Data = base64
-	c.JSON(http.StatusOK, rsp)
+	if img.Url != "" {
+		res, err := http.Get(img.Url)
+		if err != nil {
+			c.String(http.StatusBadRequest, err.Error())
+			return
+		}
+		defer res.Body.Close()
+		c.Redirect(http.StatusMovedPermanently, img.Url)
+		return
+	}
+	imageBuffer, err := base64.StdEncoding.DecodeString(img.Base64)
+	if err != nil {
+		c.String(http.StatusBadRequest, err.Error())
+		return
+	}
+	c.Writer.WriteString(string(imageBuffer))
 }
