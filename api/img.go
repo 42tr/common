@@ -72,13 +72,17 @@ func GetImg(c *gin.Context) {
 	if img.Url != "" {
 		res, err := http.Get(img.Url)
 		if err != nil {
-			c.String(http.StatusBadRequest, err.Error())
-			return
+			goto local
 		}
 		defer res.Body.Close()
+		headers := res.Header["Content-Type"]
+		if len(headers) == 0 || headers[0] != "image/jpeg" {
+			goto local
+		}
 		c.Redirect(http.StatusMovedPermanently, img.Url)
 		return
 	}
+local:
 	imageBuffer, err := base64.StdEncoding.DecodeString(img.Base64)
 	if err != nil {
 		c.String(http.StatusBadRequest, err.Error())
